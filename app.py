@@ -952,16 +952,12 @@ with main_col:
             webrtc_streamer(
                 key="object-detection",
                 video_frame_callback=video_callback,
-                async_processing=True,
+                async_processing=False,
                 desired_playing_state=True,
                 rtc_configuration=build_rtc_configuration(),
                 media_stream_constraints={"video": True, "audio": False},
                 video_html_attrs={
-                    "style": {"width": "100%", "object-fit": "contain"},
-                    "autoPlay": True,
-                    "controls": False,
-                    "playsInline": True,
-                    "muted": True
+                    "style": {"width": "100%", "object-fit": "contain"}
                 },
             )
         except Exception as webrtc_error:
