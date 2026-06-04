@@ -6,8 +6,8 @@ from datetime import datetime
 from pathlib import Path
 from threading import Lock
 from typing import Any
+import traceback
 import os
-import tempfile
 import time
 import math
 
@@ -33,20 +33,14 @@ try:
 except Exception as webrtc_import_error:
     webrtc_streamer = None
     WEBRTC_IMPORT_ERROR = str(webrtc_import_error)
-try:
-    from ultralytics import YOLO
-    YOLO_IMPORT_ERROR = ""
-except Exception as yolo_import_error:
-    YOLO = None
-    YOLO_IMPORT_ERROR = str(yolo_import_error)
+from ultralytics import YOLO
 
 
 CAPTURE_DIR = Path("captures")
 CAPTURE_DIR.mkdir(parents=True, exist_ok=True)
-# Default to a fast model, with runtime switching available in the sidebar.
-DEFAULT_MODEL_WEIGHTS = "yolov8n.pt"
+MODEL_WEIGHTS = os.getenv("YOLO_WEIGHTS", "yolov8n.pt")
 # Streamlit Cloud often has a non-writable home config path.
-os.environ.setdefault("YOLO_CONFIG_DIR", str(Path(tempfile.gettempdir()) / "Ultralytics"))
+os.environ.setdefault("YOLO_CONFIG_DIR", "/tmp/Ultralytics")
 # Prevent runtime package auto-install attempts on read-only cloud environments.
 os.environ.setdefault("YOLO_AUTOINSTALL", "False")
 
@@ -89,16 +83,14 @@ def ensure_runtime_compat(runtime: RuntimeState) -> None:
 
 
 @st.cache_resource
-def load_model(weights_path: str = DEFAULT_MODEL_WEIGHTS) -> tuple[Any | None, str]:
-    if YOLO is None:
-        return None, f"Ultralytics import failed: {YOLO_IMPORT_ERROR}"
+def load_model() -> tuple[YOLO | None, str]:
     try:
-        return YOLO(weights_path), ""
+        return YOLO(MODEL_WEIGHTS), ""
     except Exception as model_error:
         return None, f"{type(model_error).__name__}: {model_error}"
 
 
-def get_model_names(model: Any | None) -> list[str]:
+def get_model_names(model: YOLO | None) -> list[str]:
     if model is None:
         return []
     names = model.names
@@ -222,16 +214,19 @@ def overlay_hud(frame: Any, fps: float, current_counts: Counter, latest_alert: s
     if cv2 is None:
         return frame
     hud = frame.copy()
-    cv2.rectangle(hud, (10, 10), (520, 160), (0, 0, 0), -1)
-    cv2.addWeighted(hud, 0.35, frame, 0.65, 0, frame)
+    # Soft rose overlay that keeps the camera feed readable.
+    cv2.rectangle(hud, (10, 10), (520, 160), (140, 90, 170), -1)
+    # Keep the overlay translucent so detections stay clear.
+    cv2.addWeighted(hud, 0.45, frame, 0.55, 0, frame)
 
+    # Rose-toned HUD text.
     cv2.putText(
         frame,
         f"FPS: {fps:.1f}",
         (20, 40),
         cv2.FONT_HERSHEY_SIMPLEX,
         0.8,
-        (0, 255, 255),
+        (230, 150, 255),
         2,
         cv2.LINE_AA,
     )
@@ -240,7 +235,7 @@ def overlay_hud(frame: Any, fps: float, current_counts: Counter, latest_alert: s
         [f"{label}:{count}" for label, count in current_counts.most_common(4)]
     )
     if not top_counts:
-        top_counts = "No objects detected"
+        top_counts = "No objects seen"
 
     cv2.putText(
         frame,
@@ -260,7 +255,7 @@ def overlay_hud(frame: Any, fps: float, current_counts: Counter, latest_alert: s
         (20, 116),
         cv2.FONT_HERSHEY_SIMPLEX,
         0.6,
-        (60, 160, 255) if latest_alert else (180, 180, 180),
+        (180, 105, 255) if latest_alert else (200, 200, 200),
         2,
         cv2.LINE_AA,
     )
@@ -268,7 +263,7 @@ def overlay_hud(frame: Any, fps: float, current_counts: Counter, latest_alert: s
 
 
 def create_video_callback(
-    model: Any | None,
+    model: YOLO | None,
     conf_threshold: float,
     iou_threshold: float,
     alert_targets: set[str],
@@ -278,7 +273,6 @@ def create_video_callback(
     auto_capture_interval_sec: float,
     process_every_n_frames: int,
     inference_size: int,
-    mirror_view: bool,
 ) -> Any:
     if av is None:
         return None
@@ -291,8 +285,6 @@ def create_video_callback(
     def callback(frame: av.VideoFrame) -> av.VideoFrame:
         callback_state["frame_index"] += 1
         img = frame.to_ndarray(format="bgr24")
-        if mirror_view:
-            img = cv2.flip(img, 1)
         now = time.time()
         if model is None:
             return av.VideoFrame.from_ndarray(img, format="bgr24")
@@ -395,7 +387,7 @@ def create_video_callback(
 
             RUNTIME.latest_annotated_frame = annotated.copy()
 
-            if auto_capture and fired_alerts:
+            if auto_capture and sum(current_counts.values()) > 0:
                 if now - RUNTIME.last_auto_capture_ts >= auto_capture_interval_sec:
                     save_frame(annotated, "auto_capture")
                     RUNTIME.saved_frames += 1
@@ -406,15 +398,15 @@ def create_video_callback(
     return callback
 
 
-def build_rtc_configuration() -> tuple[dict[str, Any], bool]:
+def build_rtc_configuration() -> dict[str, Any]:
     # Multiple STUN servers improve connection reliability across networks.
     ice_servers: list[dict[str, Any]] = [
         {"urls": ["stun:stun.l.google.com:19302", "stun:stun1.l.google.com:19302"]},
         {"urls": ["stun:stun.cloudflare.com:3478"]},
     ]
 
-    # Optional TURN configuration from environment variables only.
-    # This avoids noisy "No secrets found" warnings when secrets.toml is absent.
+    # Optional TURN configuration from environment variables.
+    # Avoid accessing Streamlit secrets to prevent errors when secrets.toml is absent.
     turn_urls = os.getenv("TURN_URLS", "")
     turn_username = os.getenv("TURN_USERNAME", "")
     turn_password = os.getenv("TURN_PASSWORD", "")
@@ -435,28 +427,20 @@ def build_rtc_configuration() -> tuple[dict[str, Any], bool]:
             }
         )
 
-    has_turn = bool(parsed_urls and turn_username and turn_password)
-    return {"iceServers": ice_servers, "iceTransportPolicy": "all"}, has_turn
-
-
-def is_hosted_runtime() -> bool:
-    return os.getenv("STREAMLIT_SERVER_HEADLESS", "").lower() == "true"
+    return {"iceServers": ice_servers, "iceTransportPolicy": "all"}
 
 def process_snapshot_frame(
     img: Any,
-    model: Any | None,
+    model: YOLO | None,
     conf_threshold: float,
     iou_threshold: float,
     alert_targets: set[str],
     alert_confidence: float,
     alert_cooldown_sec: float,
     inference_size: int,
-    mirror_view: bool,
 ) -> Any:
     if model is None:
-        return cv2.flip(img, 1) if mirror_view else img
-    if mirror_view:
-        img = cv2.flip(img, 1)
+        return img
     now = time.time()
     try:
         result = model.predict(
@@ -520,450 +504,160 @@ def process_snapshot_frame(
     )
 
 
-def render_camera_fallback(
-    model: Any | None,
-    conf_threshold: float,
-    iou_threshold: float,
-    alert_targets: set[str],
-    alert_confidence: float,
-    alert_cooldown_sec: float,
-    inference_size: int,
-    mirror_view: bool,
-) -> None:
-    st.info("Live WebRTC is unavailable in this runtime. Using camera snapshot fallback.")
-    capture = st.camera_input("Open camera")
-    if capture is None:
-        return
-    data = capture.getvalue()
-    arr = np.frombuffer(data, dtype=np.uint8)
-    img = cv2.imdecode(arr, cv2.IMREAD_COLOR)
-    if img is None:
-        st.error("Could not decode captured image.")
-        return
-    annotated = process_snapshot_frame(
-        img=img,
-        model=model,
-        conf_threshold=conf_threshold,
-        iou_threshold=iou_threshold,
-        alert_targets=alert_targets,
-        alert_confidence=alert_confidence,
-        alert_cooldown_sec=alert_cooldown_sec,
-        inference_size=inference_size,
-        mirror_view=mirror_view,
-    )
-    st.image(annotated, channels="BGR", caption="Detection Snapshot", use_container_width=True)
-    if st.button("Save Snapshot", use_container_width=True):
-        save_frame(annotated, "snapshot")
-        with RUNTIME.lock:
-            RUNTIME.saved_frames += 1
-        st.success("Snapshot saved to captures/.")
-
-
 st.set_page_config(page_title="Live Object Detection & Tracing", layout="wide")
 
 RUNTIME = get_runtime()
-model, model_error = load_model(DEFAULT_MODEL_WEIGHTS)
+model, model_error = load_model()
 available_labels = get_model_names(model)
-rtc_configuration, has_turn = build_rtc_configuration()
-hosted_runtime = is_hosted_runtime()
 
 if cv2 is None:
     st.error("OpenCV failed to load in this environment.")
     st.code(CV2_IMPORT_ERROR)
     st.stop()
 
+if model is None:
+    st.error("YOLO model failed to load. Detection will be disabled until this is fixed.")
+    st.code(model_error)
+
+# Soft rose theme with polished, readable controls.
 st.markdown(
     """
 <style>
-@import url('https://fonts.googleapis.com/css2?family=Outfit:wght@300;400;600;700&display=swap');
-
-html, body, [class*="css"] {
-    font-family: 'Outfit', sans-serif !important;
+:root {
+    --rose-700: #7b3d62;
+    --rose-600: #a44e75;
+    --rose-500: #c85d8f;
+    --mauve-200: #ead8e7;
+    --lilac-100: #f4edf8;
+    --blush-50: #fff7fb;
+    --sage-100: #edf7f1;
+    --ink-700: #3f3440;
+    --muted-600: #705d6d;
 }
-
-[data-testid="stAppViewContainer"] {
-    background-color: #1a0f16;
-    color: #fdf2f8;
+.stApp {
+    background:
+        radial-gradient(circle at top left, rgba(255, 228, 238, 0.78), transparent 34rem),
+        linear-gradient(135deg, var(--blush-50) 0%, var(--lilac-100) 56%, var(--sage-100) 100%);
+    color: var(--ink-700);
 }
-
-[data-testid="stSidebar"] {
-    background: rgba(35, 20, 29, 0.8) !important;
-    backdrop-filter: blur(12px) !important;
-    -webkit-backdrop-filter: blur(12px) !important;
-    border-right: 1px solid rgba(255, 105, 180, 0.1);
-}
-
-[data-testid="stHeader"] {
-    background: transparent !important;
-}
-
 div.block-container {
-    padding-top: 2rem;
+    padding-top: 1.35rem;
     padding-bottom: 2rem;
-    max-width: 1400px;
+    max-width: 1220px;
+    width: 95%;
 }
-
-/* Modern HIRAYA Hero (Girl Themed) */
-.hiraya-hero {
-    position: relative;
-    background: rgba(45, 25, 35, 0.7);
-    backdrop-filter: blur(16px);
-    -webkit-backdrop-filter: blur(16px);
-    border: 1px solid rgba(255, 105, 180, 0.15);
-    border-radius: 24px;
-    padding: 2.5rem;
-    margin-bottom: 1.5rem;
-    color: #ffffff;
-    box-shadow: 0 8px 30px rgba(0, 0, 0, 0.2);
-    overflow: hidden;
-    transition: transform 0.3s ease, box-shadow 0.3s ease;
-}
-
-.hiraya-hero:hover {
-    transform: translateY(-2px);
-    box-shadow: 0 12px 40px rgba(0, 0, 0, 0.3);
-}
-
-.hiraya-hero::before {
-    content: '';
-    position: absolute;
-    top: 0; left: 0; right: 0; height: 4px;
-    background: linear-gradient(90deg, #ff69b4, #ffb6c1);
-}
-
-.hiraya-hero h1 {
-    margin: 0 0 0.5rem 0;
-    font-size: 2.8rem;
+h1, h2, h3 {
+    letter-spacing: 0;
+    color: var(--rose-700);
     font-weight: 700;
-    background: -webkit-linear-gradient(45deg, #ff69b4, #fbcfe8);
-    -webkit-background-clip: text;
-    -webkit-text-fill-color: transparent;
-    letter-spacing: -1px;
 }
-
-.hiraya-hero .subtitle {
-    color: #fbcfe8;
-    font-size: 1.15rem;
-    font-weight: 300;
+h1 {
+    font-size: 2.2rem;
+    line-height: 1.12;
 }
-
-/* Status Chips */
-.status-chip {
-    display: inline-flex;
-    align-items: center;
-    background: rgba(255, 105, 180, 0.1);
-    border: 1px solid rgba(255, 105, 180, 0.3);
-    padding: 0.4rem 1rem;
-    border-radius: 9999px;
-    font-size: 0.85rem;
-    font-weight: 600;
-    color: #ffb6c1 !important;
-    margin-right: 0.75rem;
-    box-shadow: 0 2px 10px rgba(0,0,0,0.1);
-    transition: all 0.2s ease;
+section[data-testid="stSidebar"] {
+    background: linear-gradient(180deg, #fff8fb 0%, #f5edf8 58%, #edf7f1 100%);
+    border-right: 1px solid rgba(164, 78, 117, 0.18);
 }
-
-.status-chip:hover {
-    background: rgba(255, 105, 180, 0.2);
-    border-color: rgba(255, 105, 180, 0.5);
-    transform: translateY(-1px);
+section[data-testid="stSidebar"] h2,
+section[data-testid="stSidebar"] h3 {
+    color: var(--rose-700);
 }
-
-.status-chip * {
-    color: #ffb6c1 !important;
+label, .stMarkdown, .stCaption, p {
+    color: var(--ink-700);
 }
-
-/* Metric Cards */
-[data-testid="stVerticalBlock"] > [data-testid="stMetric"], [data-testid="stMetric"] {
-    background: rgba(45, 25, 35, 0.6) !important;
-    backdrop-filter: blur(8px);
-    border: 1px solid rgba(255, 105, 180, 0.1);
-    border-radius: 16px;
-    padding: 1.2rem;
-    transition: all 0.3s ease;
-    box-shadow: 0 4px 6px rgba(0, 0, 0, 0.1);
-}
-
-[data-testid="stVerticalBlock"] > [data-testid="stMetric"]:hover, [data-testid="stMetric"]:hover {
-    background: rgba(55, 30, 45, 0.9) !important;
-    border-color: rgba(255, 105, 180, 0.3);
-    transform: translateY(-2px);
-    box-shadow: 0 8px 15px rgba(0, 0, 0, 0.2);
-}
-
 [data-testid="stMetricValue"] {
-    font-size: 2rem !important;
-    font-weight: 700 !important;
-    color: #ffb6c1 !important;
+    font-size: 1.25rem;
+    color: var(--rose-600);
 }
-
-[data-testid="stMetricLabel"] {
-    font-size: 0.9rem !important;
-    color: #fbcfe8 !important;
-    text-transform: uppercase;
-    letter-spacing: 0.5px;
-}
-
-/* Small note */
 .small-note {
-    color: #fbcfe8;
+    color: var(--muted-600);
     font-size: 0.9rem;
-    margin-top: 1rem;
-    text-align: center;
-    font-style: italic;
-    opacity: 0.8;
 }
-
-/* Inputs and interactive elements */
-.stButton>button {
-    background: linear-gradient(135deg, #ff1493, #ff69b4) !important;
-    color: white !important;
-    border: none !important;
-    border-radius: 12px !important;
-    padding: 0.5rem 1.5rem !important;
-    font-weight: 600 !important;
-    transition: all 0.3s ease !important;
-    box-shadow: 0 4px 12px rgba(255, 20, 147, 0.3) !important;
+div[data-testid="stExpander"] {
+    border-radius: 8px;
+    border: 1px solid rgba(200, 93, 143, 0.28);
+    background: rgba(255, 255, 255, 0.74);
+    box-shadow: 0 10px 24px rgba(123, 61, 98, 0.09);
 }
-
-.stButton>button:hover {
-    background: linear-gradient(135deg, #c71585, #ff1493) !important;
-    transform: translateY(-2px) !important;
-    box-shadow: 0 6px 16px rgba(255, 20, 147, 0.5) !important;
+div[data-testid="stExpander"] summary {
+    color: var(--rose-700);
+    font-weight: 650;
 }
-
-/* Download button specifics */
-[data-testid="stDownloadButton"]>button {
-    background: rgba(255, 105, 180, 0.1) !important;
-    color: #ffb6c1 !important;
-    border: 1px solid rgba(255, 105, 180, 0.3) !important;
-    box-shadow: 0 4px 12px rgba(0, 0, 0, 0.1) !important;
+.stButton > button {
+    border-radius: 8px;
+    border: 1px solid var(--rose-600);
+    background: var(--rose-600);
+    color: #ffffff;
+    font-weight: 650;
 }
-[data-testid="stDownloadButton"]>button:hover {
-    background: rgba(255, 105, 180, 0.2) !important;
-    border: 1px solid rgba(255, 105, 180, 0.5) !important;
-    box-shadow: 0 6px 16px rgba(0, 0, 0, 0.2) !important;
+.stButton > button:hover {
+    border-color: var(--rose-700);
+    background: var(--rose-700);
+    color: #ffffff;
 }
-
-/* Expanders */
-.streamlit-expanderHeader {
-    background: rgba(45, 25, 35, 0.6) !important;
-    border-radius: 8px !important;
-    border: 1px solid rgba(255, 105, 180, 0.1) !important;
-    color: #fbcfe8 !important;
+.stSlider [data-baseweb="slider"] div[role="slider"] {
+    box-shadow: 0 0 0 0.25rem rgba(200, 93, 143, 0.16);
 }
-
-.streamlit-expanderContent {
-    border: 1px solid rgba(255, 105, 180, 0.1) !important;
-    border-top: none !important;
-    border-radius: 0 0 8px 8px !important;
-    background: rgba(35, 20, 29, 0.4) !important;
+div[data-baseweb="select"] > div,
+div[data-testid="stAlert"] {
+    border-radius: 8px;
 }
-
-/* Tables */
-[data-testid="stTable"] {
-    background: transparent !important;
-}
-th {
-    color: #ffb6c1 !important;
-    border-bottom: 1px solid rgba(255, 105, 180, 0.2) !important;
-}
-td {
-    color: #fdf2f8 !important;
-    border-bottom: 1px solid rgba(255, 105, 180, 0.1) !important;
-}
-
-/* Divider */
-hr {
-    border-color: rgba(255, 105, 180, 0.15) !important;
+table {
+    border-radius: 8px;
+    overflow: hidden;
 }
 </style>
 """,
     unsafe_allow_html=True,
 )
-
-st.markdown(
-    """
-<div class="hiraya-hero">
-  <h1>HIRAYA Vision System</h1>
-  <div class="subtitle">Advanced real-time AI object detection, tracking, and environmental monitoring.</div>
-  <div style="margin-top: 1.2rem;">
-    <span class="status-chip">System: HIRAYA</span>
-    <span class="status-chip">Core: YOLOv8</span>
-    <span class="status-chip">Stream: WebRTC</span>
-  </div>
-</div>
-""",
-    unsafe_allow_html=True,
+st.title("Live Object Detection & Tracing")
+st.write(
+    f"Real-time **{MODEL_WEIGHTS}** detection and tracking with soft controls, alerting, and session summaries."
 )
 
-main_col, side_col = st.columns([2.2, 1.2], gap="large")
+with st.sidebar:
+    st.header("Detection Settings")
+    conf_threshold = st.slider("Confidence", 0.10, 0.95, 0.25, 0.05)
+    iou_threshold = st.slider("IoU", 0.10, 0.95, 0.50, 0.05)
+    inference_size = st.select_slider(
+        "Inference Size",
+        options=[320, 416, 512, 640],
+        value=416,
+        help="Lower value = faster inference; higher value = better detail.",
+    )
+    process_every_n_frames = st.select_slider(
+        "Infer Every N Frames",
+        options=[1, 2, 3],
+        value=1,
+        help="Set to 2 or 3 for smoother preview on low-end devices.",
+    )
 
-with side_col:
-    st.subheader("Dashboard")
-    
-    tab_controls, tab_alerts, tab_stats = st.tabs(["Controls", "Alerts", "Stats"])
-    
-    with tab_controls:
-        st.info("Model is fixed to `yolov8n.pt`.")
-        if model is None:
-            st.error("YOLO model failed to load.")
-            st.code(model_error)
+    st.header("Alerts")
+    alert_targets = st.multiselect(
+        "Target Objects",
+        options=available_labels,
+        default=["person", "cell phone", "bottle"]
+        if available_labels and all(x in available_labels for x in ["person", "cell phone", "bottle"])
+        else available_labels[:3],
+    )
+    alert_confidence = st.slider("Min Alert Confidence", 0.10, 0.99, 0.60, 0.05)
+    alert_cooldown_sec = st.slider("Alert Cooldown (s)", 1.0, 20.0, 4.0, 1.0)
 
-        enable_webrtc_default = (not hosted_runtime) or has_turn
-        enable_webrtc = st.checkbox(
-            "Enable Live WebRTC",
-            value=enable_webrtc_default,
-            help="Disable if hosted runtime blocks UDP or no TURN is configured.",
-        )
-        if hosted_runtime and not has_turn:
-            st.warning(
-                "Hosted runtime detected without TURN. Live WebRTC may fail; snapshot fallback is safer."
-            )
-        
-        conf_threshold = st.slider("Confidence", 0.10, 0.95, 0.25, 0.05)
-        iou_threshold = st.slider("IoU", 0.10, 0.95, 0.50, 0.05)
-        inference_size = st.select_slider(
-            "Inference Size",
-            options=[320, 416, 512, 640],
-            value=416,
-            help="Lower value = faster inference; higher value = better detail.",
-        )
-        process_every_n_frames = st.select_slider(
-            "Infer Every N Frames",
-            options=[1, 2, 3],
-            value=1,
-            help="Set to 2 or 3 for smoother preview on low-end devices.",
-        )
-        mirror_view = st.checkbox("Mirror View", value=False, help="Toggle selfie-style horizontal mirroring.")
-        
-    with tab_alerts:
-        alert_targets = st.multiselect(
-            "Target Objects",
-            options=available_labels,
-            default=["person", "cell phone", "bottle"]
-            if available_labels and all(x in available_labels for x in ["person", "cell phone", "bottle"])
-            else available_labels[:3],
-        )
-        alert_confidence = st.slider("Min Alert Confidence", 0.10, 0.99, 0.60, 0.05)
-        alert_cooldown_sec = st.slider("Alert Cooldown (s)", 1.0, 20.0, 4.0, 1.0)
-        auto_capture = st.checkbox("Auto-save on target alert", value=True)
-        auto_capture_interval_sec = st.slider("Auto-save interval (s)", 1.0, 30.0, 6.0, 1.0)
+    if st.button("Reset Session Stats"):
+        reset_runtime()
+        st.success("Session stats reset to zero.")
 
-    with tab_stats:
-        @st.fragment(run_every="1s")
-        def render_live_stats() -> None:
-            stats = snapshot_runtime()
-            metric_col1, metric_col2, metric_col3 = st.columns(3)
-            metric_col1.metric("FPS", f"{stats['fps']:.1f}")
-            metric_col2.metric("Frames", f"{stats['frames_processed']}")
-            metric_col3.metric("Saved", f"{stats['saved_frames']}")
+video_col, info_col = st.columns([1.9, 1.1], gap="medium")
 
-            if stats["latest_alert_message"]:
-                st.warning(stats["latest_alert_message"])
-            else:
-                st.caption("No active alerts.")
-
-            with st.expander("Current Counts", expanded=True):
-                if stats["current_frame_counts"]:
-                    st.table(
-                        [
-                            {"Object": obj, "Count": cnt}
-                            for obj, cnt in sorted(
-                                stats["current_frame_counts"].items(), key=lambda x: x[1], reverse=True
-                            )[:8]
-                        ]
-                    )
-                else:
-                    st.caption("No detections yet.")
-
-            with st.expander("Session Tracks", expanded=False):
-                if stats["session_track_counts"]:
-                    st.table(
-                        [
-                            {"Object": obj, "Tracks": cnt}
-                            for obj, cnt in sorted(
-                                stats["session_track_counts"].items(), key=lambda x: x[1], reverse=True
-                            )[:8]
-                        ]
-                    )
-                else:
-                    st.caption("No tracking data yet.")
-
-            with st.expander("Recent Alerts", expanded=False):
-                if stats["alert_history"]:
-                    for alert_line in stats["alert_history"]:
-                        st.write(f"- {alert_line}")
-                else:
-                    st.caption("No alerts recorded.")
-            st.download_button(
-                label="Download Session Summary (CSV)",
-                data=(
-                    "metric,value\n"
-                    f"fps,{stats['fps']:.3f}\n"
-                    f"frames_processed,{stats['frames_processed']}\n"
-                    f"saved_frames,{stats['saved_frames']}\n"
-                    f"current_objects,{sum(stats['current_frame_counts'].values())}\n"
-                    f"total_unique_tracks,{sum(stats['session_track_counts'].values())}\n"
-                ),
-                file_name="hiraya_session_summary.csv",
-                mime="text/csv",
-                use_container_width=True,
-            )
-
-        render_live_stats()
-        
-        st.divider()
-        if st.button("Reset Session Stats", use_container_width=True):
-            reset_runtime()
-            st.success("Session stats reset.")
-
-with main_col:
-    st.subheader("Live Preview")
-    
-    action_col1, action_col2 = st.columns([2.5, 1])
-    with action_col1:
-        quick_capture_name = st.text_input("Quick Capture Tag", value="manual_capture", label_visibility="collapsed")
-    with action_col2:
-        if st.button("Snapshot", use_container_width=True):
-            with RUNTIME.lock:
-                frame_for_save = None if RUNTIME.latest_annotated_frame is None else RUNTIME.latest_annotated_frame.copy()
-            if frame_for_save is None:
-                st.warning("No frame available.")
-            else:
-                save_frame(frame_for_save, quick_capture_name.replace(" ", "_"))
-                with RUNTIME.lock:
-                    RUNTIME.saved_frames += 1
-                st.success("Saved!")
-
+with video_col:
+    st.subheader("Live Camera Preview")
     if webrtc_streamer is None or av is None:
         st.error("Realtime preview is unavailable because WebRTC dependencies failed to load.")
         if WEBRTC_IMPORT_ERROR:
             st.code(WEBRTC_IMPORT_ERROR)
         if AV_IMPORT_ERROR:
             st.code(AV_IMPORT_ERROR)
-        render_camera_fallback(
-            model=model,
-            conf_threshold=conf_threshold,
-            iou_threshold=iou_threshold,
-            alert_targets=set(alert_targets),
-            alert_confidence=alert_confidence,
-            alert_cooldown_sec=alert_cooldown_sec,
-            inference_size=inference_size,
-            mirror_view=mirror_view,
-        )
-    elif not enable_webrtc:
-        st.info("Live WebRTC is disabled. Using camera snapshot fallback.")
-        render_camera_fallback(
-            model=model,
-            conf_threshold=conf_threshold,
-            iou_threshold=iou_threshold,
-            alert_targets=set(alert_targets),
-            alert_confidence=alert_confidence,
-            alert_cooldown_sec=alert_cooldown_sec,
-            inference_size=inference_size,
-            mirror_view=mirror_view,
-        )
     else:
         try:
             video_callback = create_video_callback(
@@ -973,48 +667,74 @@ with main_col:
                 alert_targets=set(alert_targets),
                 alert_confidence=alert_confidence,
                 alert_cooldown_sec=alert_cooldown_sec,
-                auto_capture=auto_capture,
-                auto_capture_interval_sec=auto_capture_interval_sec,
+                auto_capture=False,
+                auto_capture_interval_sec=60.0,
                 process_every_n_frames=process_every_n_frames,
                 inference_size=inference_size,
-                mirror_view=mirror_view,
             )
             webrtc_streamer(
                 key="object-detection",
                 video_frame_callback=video_callback,
                 async_processing=True,
                 desired_playing_state=True,
-                rtc_configuration=rtc_configuration,
-                media_stream_constraints={"video": True, "audio": False},
-                video_html_attrs={
-                    "style": {"width": "100%", "object-fit": "contain"}
+                # Explicit constraints for standard 16:9 ratio to prevent the "zoomed in" cropping effect
+                media_stream_constraints={
+                    "video": {"width": {"ideal": 1280}, "height": {"ideal": 720}, "aspectRatio": 1.777},
+                    "audio": False,
                 },
             )
         except Exception as webrtc_error:
             st.error("WebRTC session failed to start.")
             st.caption(f"WebRTC error: {type(webrtc_error).__name__}: {webrtc_error}")
-            render_camera_fallback(
-                model=model,
-                conf_threshold=conf_threshold,
-                iou_threshold=iou_threshold,
-                alert_targets=set(alert_targets),
-                alert_confidence=alert_confidence,
-                alert_cooldown_sec=alert_cooldown_sec,
-                inference_size=inference_size,
-                mirror_view=mirror_view,
-            )
-            
+            with st.expander("WebRTC error details"):
+                st.code(traceback.format_exc())
     st.markdown(
-        '<div class="small-note">Use the Start button above the video widget to begin realtime detection.</div>',
+        '<div class="small-note">Camera stream is ready for realtime detection.</div>',
         unsafe_allow_html=True,
     )
 
-st.divider()
-st.subheader("Gallery")
-capture_files = sorted(CAPTURE_DIR.glob("*.jpg"), key=lambda p: p.stat().st_mtime, reverse=True)[:6]
-if capture_files:
-    cols = st.columns(6)
-    for idx, cap_path in enumerate(capture_files):
-        cols[idx % 6].image(str(cap_path), caption=cap_path.name, use_container_width=True)
-else:
-    st.caption("No captures saved yet.")
+with info_col:
+    @st.fragment(run_every="1s")
+    def render_live_stats() -> None:
+        stats = snapshot_runtime()
+
+        if stats["latest_alert_message"]:
+            st.warning(stats["latest_alert_message"])
+        else:
+            st.caption("No active alerts at the moment.")
+
+        with st.expander("Current Counts", expanded=True):
+            if stats["current_frame_counts"]:
+                st.table(
+                    [
+                        {"Object": obj, "Count": cnt}
+                        for obj, cnt in sorted(
+                            stats["current_frame_counts"].items(), key=lambda x: x[1], reverse=True
+                        )[:8]
+                    ]
+                )
+            else:
+                st.caption("No detections yet.")
+
+        with st.expander("Session Tracks", expanded=False):
+            if stats["session_track_counts"]:
+                st.table(
+                    [
+                        {"Object": obj, "Tracks": cnt}
+                        for obj, cnt in sorted(
+                            stats["session_track_counts"].items(), key=lambda x: x[1], reverse=True
+                        )[:8]
+                    ]
+                )
+            else:
+                st.caption("No tracking data yet.")
+
+        with st.expander("Recent Alerts", expanded=False):
+            if stats["alert_history"]:
+                for alert_line in stats["alert_history"]:
+                    st.write(f"- {alert_line}")
+            else:
+                st.caption("No alerts recorded yet.")
+
+    render_live_stats()
+
