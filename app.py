@@ -955,10 +955,7 @@ with main_col:
                 async_processing=True,
                 desired_playing_state=True,
                 rtc_configuration=build_rtc_configuration(),
-                media_stream_constraints={
-                    "video": {"width": {"ideal": 1280}, "height": {"ideal": 720}}, 
-                    "audio": False
-                },
+                media_stream_constraints={"video": True, "audio": False},
                 video_html_attrs={
                     "style": {"width": "100%", "object-fit": "contain"},
                     "autoPlay": True,
