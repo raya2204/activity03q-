@@ -33,7 +33,13 @@ try:
 except Exception as webrtc_import_error:
     webrtc_streamer = None
     WEBRTC_IMPORT_ERROR = str(webrtc_import_error)
-from ultralytics import YOLO
+
+try:
+    from ultralytics import YOLO
+    YOLO_IMPORT_ERROR = ""
+except Exception as yolo_import_error:
+    YOLO = None
+    YOLO_IMPORT_ERROR = str(yolo_import_error)
 
 
 CAPTURE_DIR = Path("captures")
@@ -84,6 +90,8 @@ def ensure_runtime_compat(runtime: RuntimeState) -> None:
 
 @st.cache_resource
 def load_model() -> tuple[YOLO | None, str]:
+    if YOLO is None:
+        return None, YOLO_IMPORT_ERROR or "Ultralytics failed to import."
     try:
         return YOLO(MODEL_WEIGHTS), ""
     except Exception as model_error:
@@ -737,4 +745,3 @@ with info_col:
                 st.caption("No alerts recorded yet.")
 
     render_live_stats()
-
