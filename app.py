@@ -952,7 +952,7 @@ with main_col:
             webrtc_streamer(
                 key="object-detection",
                 video_frame_callback=video_callback,
-                async_processing=False,
+                async_processing=True,
                 desired_playing_state=True,
                 rtc_configuration=build_rtc_configuration(),
                 media_stream_constraints={"video": True, "audio": False},
