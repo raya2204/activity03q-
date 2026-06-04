@@ -215,11 +215,11 @@ pip install -r requirements.txt
 <ol>
   <li>
     Live Streamlit deployment link:
-    <a href="https://python-app-ml-model.streamlit.app">https://python-app-ml-model.streamlit.app</a>
+    <a href="https://act03q.streamlit.app/">https://python-app-ml-model.streamlit.app</a>
   </li>
   <li>
     GitHub repository link with this README:
-    <a href="https://github.com/ke1thdev/Python-Streamlit-ML-Model">https://github.com/ke1thdev/Python-Streamlit-ML-Model</a>
+    <a href="https://github.com/raya2204/activity03q-/blob/main/README.md">https://github.com/ke1thdev/Python-Streamlit-ML-Model</a>
   </li>
   <li>Google Document report link containing:
     <ul>
