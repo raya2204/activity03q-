@@ -793,7 +793,7 @@ with video_col:
                 key="object-detection",
                 video_frame_callback=video_callback,
                 async_processing=True,
-                desired_playing_state=True,
+                desired_playing_state=False,
                 # Explicit constraints for standard 16:9 ratio to prevent the "zoomed in" cropping effect
                 media_stream_constraints={
                     "video": {"width": {"ideal": 1280}, "height": {"ideal": 720}, "aspectRatio": 1.777},
