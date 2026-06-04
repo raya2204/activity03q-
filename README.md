@@ -45,7 +45,6 @@ The current configured model is <code>yolov8n.pt</code> to prioritize stronger d
   <li>At least 5 screenshots or screen recordings.</li>
   <li>Reflection answers:
     <ul>
-      <li>What objects were easily detected?</li>
       <li>What factors affect detection accuracy?</li>
     </ul>
   </li>
@@ -131,16 +130,6 @@ which can reduce FPS and responsiveness on laptop-class CPUs.
   </tbody>
 </table>
 
-<h3>Objects Easily Detected (from reflection)</h3>
-<ul>
-  <li>Person</li>
-  <li>Book</li>
-  <li>Cell phone</li>
-  <li>Chair</li>
-  <li>Cup</li>
-  <li>Bowl</li>
-</ul>
-
 <h3>Factors Affecting Detection Accuracy (from reflection + technical interpretation)</h3>
 <ul>
   <li><strong>Model scale:</strong> Larger model generally detects more accurately.</li>
@@ -217,9 +206,6 @@ pip install -r requirements.txt
 ├─ requirements.txt
 ├─ task.md
 ├─ reflection.txt
-├─ yolov8n.pt
-├─ yolov8s.pt
-├─ yolov8l.pt
 └─ captures/               (generated at runtime)
 </code></pre>
 
