@@ -222,18 +222,18 @@ def overlay_hud(frame: Any, fps: float, current_counts: Counter, latest_alert: s
     if cv2 is None:
         return frame
     hud = frame.copy()
-    # Dark modern overlay for glassmorphism tech look
-    cv2.rectangle(hud, (10, 10), (520, 160), (40, 20, 10), -1)
-    cv2.addWeighted(hud, 0.6, frame, 0.4, 0, frame)
+    # Soft pink overlay
+    cv2.rectangle(hud, (10, 10), (520, 160), (180, 114, 244), -1)
+    cv2.addWeighted(hud, 0.35, frame, 0.65, 0, frame)
 
-    # Cyan HUD text (BGR: 248, 189, 56)
+    # Soft pink HUD text
     cv2.putText(
         frame,
         f"FPS: {fps:.1f}",
         (20, 40),
         cv2.FONT_HERSHEY_SIMPLEX,
         0.8,
-        (248, 189, 56),
+        (210, 140, 250),
         2,
         cv2.LINE_AA,
     )
@@ -262,7 +262,7 @@ def overlay_hud(frame: Any, fps: float, current_counts: Counter, latest_alert: s
         (20, 116),
         cv2.FONT_HERSHEY_SIMPLEX,
         0.6,
-        (248, 189, 56) if latest_alert else (180, 180, 180),
+        (190, 100, 250) if latest_alert else (200, 200, 200),
         2,
         cv2.LINE_AA,
     )
@@ -519,21 +519,21 @@ st.markdown(
     """
 <style>
 :root {
-    --bg-base: #0f172a;
-    --bg-surface: rgba(30, 41, 59, 0.7);
-    --border-color: rgba(56, 189, 248, 0.2);
-    --text-main: #f8fafc;
-    --text-muted: #94a3b8;
-    --accent-primary: #38bdf8;
-    --accent-glow: rgba(56, 189, 248, 0.4);
-    --shadow-soft: 0 8px 32px 0 rgba(0, 0, 0, 0.37);
+    --bg-base: #fdf2f8;
+    --bg-surface: rgba(255, 255, 255, 0.85);
+    --border-color: rgba(244, 114, 182, 0.25);
+    --text-main: #4a303f;
+    --text-muted: #835b71;
+    --accent-primary: #ec4899;
+    --accent-glow: rgba(244, 114, 182, 0.3);
+    --shadow-soft: 0 10px 35px 0 rgba(236, 72, 153, 0.08);
     --shadow-glow: 0 0 15px var(--accent-glow);
 }
 html, body, .stApp {
     background-color: var(--bg-base) !important;
     background-image: 
-        radial-gradient(circle at 15% 50%, rgba(56, 189, 248, 0.08), transparent 25%),
-        radial-gradient(circle at 85% 30%, rgba(139, 92, 246, 0.08), transparent 25%) !important;
+        radial-gradient(circle at 10% 20%, rgba(244, 114, 182, 0.1), transparent 30%),
+        radial-gradient(circle at 90% 80%, rgba(192, 132, 252, 0.1), transparent 30%) !important;
     color: var(--text-main) !important;
     font-family: 'Inter', sans-serif;
 }
@@ -554,12 +554,12 @@ div.block-container {
 h1, h2, h3, h4, h5, h6 {
     color: var(--text-main) !important;
     font-weight: 700;
-    letter-spacing: -0.02em;
+    letter-spacing: -0.01em;
 }
 section[data-testid="stSidebar"] {
-    background: rgba(15, 23, 42, 0.8) !important;
-    backdrop-filter: blur(16px);
-    -webkit-backdrop-filter: blur(16px);
+    background: rgba(255, 255, 255, 0.7) !important;
+    backdrop-filter: blur(12px);
+    -webkit-backdrop-filter: blur(12px);
     border-right: 1px solid var(--border-color);
 }
 section[data-testid="stSidebar"] h2,
@@ -571,7 +571,6 @@ label, p, span, .stMarkdown, .stCaption, [data-testid="stMarkdownContainer"] {
 }
 [data-testid="stMetricValue"] {
     color: var(--accent-primary) !important;
-    text-shadow: var(--shadow-glow);
 }
 .small-note {
     color: var(--text-muted);
@@ -581,8 +580,8 @@ label, p, span, .stMarkdown, .stCaption, [data-testid="stMarkdownContainer"] {
 }
 div[data-testid="stExpander"] {
     background: var(--bg-surface) !important;
-    backdrop-filter: blur(10px);
-    -webkit-backdrop-filter: blur(10px);
+    backdrop-filter: blur(8px);
+    -webkit-backdrop-filter: blur(8px);
     border: 1px solid var(--border-color);
     border-radius: 12px;
     box-shadow: var(--shadow-soft);
@@ -592,19 +591,18 @@ div[data-testid="stExpander"] summary {
     font-weight: 600;
 }
 .stButton > button {
-    background: transparent;
+    background: var(--bg-surface);
     border: 1px solid var(--accent-primary);
     color: var(--accent-primary) !important;
     border-radius: 8px;
     font-weight: 600;
     transition: all 0.3s ease;
-    text-transform: uppercase;
-    letter-spacing: 0.05em;
+    letter-spacing: 0.03em;
     font-size: 0.85rem;
 }
 .stButton > button:hover {
     background: var(--accent-primary);
-    color: var(--bg-base) !important;
+    color: #ffffff !important;
     box-shadow: var(--shadow-glow);
 }
 div[data-baseweb="select"] > div,
@@ -612,29 +610,29 @@ div[data-testid="stAlert"],
 div[data-testid="stDataFrame"],
 textarea,
 input {
-    background: rgba(30, 41, 59, 0.5) !important;
+    background: rgba(255, 255, 255, 0.6) !important;
     border: 1px solid var(--border-color) !important;
     border-radius: 8px !important;
     color: var(--text-main) !important;
 }
 div[data-baseweb="popover"],
 ul[data-testid="stVirtualDropdown"] {
-    background: var(--bg-base) !important;
+    background: #ffffff !important;
     border: 1px solid var(--border-color);
     color: var(--text-main) !important;
 }
 [data-baseweb="tag"] {
-    background: rgba(56, 189, 248, 0.2) !important;
+    background: rgba(244, 114, 182, 0.15) !important;
     color: var(--accent-primary) !important;
-    border: 1px solid var(--accent-primary);
+    border: 1px solid rgba(244, 114, 182, 0.3);
 }
 .stSlider [data-baseweb="slider"] > div {
     color: var(--accent-primary) !important;
 }
 .stSlider [data-baseweb="slider"] div[role="slider"] {
     background: var(--accent-primary) !important;
-    border: none !important;
-    box-shadow: var(--shadow-glow) !important;
+    border: 2px solid #ffffff !important;
+    box-shadow: 0 0 0 3px rgba(244, 114, 182, 0.2) !important;
 }
 [data-testid="stCameraInput"] video,
 [data-testid="stImage"],
@@ -650,24 +648,24 @@ table {
     color: var(--text-main) !important;
 }
 thead tr th {
-    background: rgba(56, 189, 248, 0.1) !important;
+    background: rgba(244, 114, 182, 0.1) !important;
     color: var(--accent-primary) !important;
     border-bottom: 1px solid var(--border-color) !important;
 }
 tbody tr td {
     background: transparent !important;
     color: var(--text-muted) !important;
-    border-bottom: 1px solid rgba(255, 255, 255, 0.05) !important;
+    border-bottom: 1px solid rgba(244, 114, 182, 0.1) !important;
 }
 code, pre {
-    background: rgba(0, 0, 0, 0.3) !important;
+    background: rgba(244, 114, 182, 0.05) !important;
     color: var(--accent-primary) !important;
     border-radius: 8px;
     border: 1px solid var(--border-color);
 }
 .hero-band {
     width: 100%;
-    padding: 2rem 0;
+    padding: 1.5rem 0;
     border-bottom: 1px solid var(--border-color);
     margin-bottom: 2rem;
     position: relative;
@@ -677,36 +675,34 @@ code, pre {
     position: absolute;
     bottom: -1px;
     left: 0;
-    width: 100px;
-    height: 1px;
+    width: 80px;
+    height: 2px;
     background: var(--accent-primary);
-    box-shadow: var(--shadow-glow);
 }
 .hero-kicker {
     color: var(--accent-primary) !important;
     font-size: 0.85rem;
     font-weight: 600;
-    letter-spacing: 0.15em;
+    letter-spacing: 0.1em;
     text-transform: uppercase;
     margin-bottom: 0.5rem;
 }
 .hero-title {
     color: var(--text-main) !important;
-    font-size: clamp(2.5rem, 5vw, 4rem);
+    font-size: clamp(2rem, 4vw, 3rem);
     font-weight: 800;
     line-height: 1.1;
     margin: 0;
-    text-shadow: 0 4px 12px rgba(0, 0, 0, 0.5);
 }
 .hero-copy {
     color: var(--text-muted) !important;
     max-width: 800px;
     margin: 1rem 0 0 0;
-    font-size: 1.1rem;
+    font-size: 1.05rem;
     line-height: 1.6;
 }
 .stAlert {
-    background: rgba(30, 41, 59, 0.8) !important;
+    background: rgba(255, 255, 255, 0.8) !important;
     backdrop-filter: blur(10px);
     border: 1px solid var(--border-color);
     color: var(--text-main) !important;
@@ -726,8 +722,8 @@ st.markdown(
     <div class="hero-kicker">Hiraya Activity 03</div>
     <h1 class="hero-title">Hiraya Vision Studio</h1>
     <p class="hero-copy">
-        Advanced <strong>{MODEL_WEIGHTS}</strong> real-time detection pipeline with a sleek glassmorphism interface,
-        dark mode telemetry, and precision tracking.
+        Real-time <strong>{MODEL_WEIGHTS}</strong> detection and tracking with elegant controls,
+        soft status panels, and clean session summaries.
     </p>
 </div>
 """,
