@@ -406,7 +406,7 @@ def create_video_callback(
     return callback
 
 
-def build_rtc_configuration() -> dict[str, Any]:
+def build_rtc_configuration() -> tuple[dict[str, Any], bool]:
     # Multiple STUN servers improve connection reliability across networks.
     ice_servers: list[dict[str, Any]] = [
         {"urls": ["stun:stun.l.google.com:19302", "stun:stun1.l.google.com:19302"]},
@@ -435,7 +435,12 @@ def build_rtc_configuration() -> dict[str, Any]:
             }
         )
 
-    return {"iceServers": ice_servers, "iceTransportPolicy": "all"}
+    has_turn = bool(parsed_urls and turn_username and turn_password)
+    return {"iceServers": ice_servers, "iceTransportPolicy": "all"}, has_turn
+
+
+def is_hosted_runtime() -> bool:
+    return os.getenv("STREAMLIT_SERVER_HEADLESS", "").lower() == "true"
 
 def process_snapshot_frame(
     img: Any,
@@ -559,6 +564,8 @@ st.set_page_config(page_title="Live Object Detection & Tracing", layout="wide")
 RUNTIME = get_runtime()
 model, model_error = load_model(DEFAULT_MODEL_WEIGHTS)
 available_labels = get_model_names(model)
+rtc_configuration, has_turn = build_rtc_configuration()
+hosted_runtime = is_hosted_runtime()
 
 if cv2 is None:
     st.error("OpenCV failed to load in this environment.")
@@ -802,6 +809,17 @@ with side_col:
         if model is None:
             st.error("YOLO model failed to load.")
             st.code(model_error)
+
+        enable_webrtc_default = (not hosted_runtime) or has_turn
+        enable_webrtc = st.checkbox(
+            "Enable Live WebRTC",
+            value=enable_webrtc_default,
+            help="Disable if hosted runtime blocks UDP or no TURN is configured.",
+        )
+        if hosted_runtime and not has_turn:
+            st.warning(
+                "Hosted runtime detected without TURN. Live WebRTC may fail; snapshot fallback is safer."
+            )
         
         conf_threshold = st.slider("Confidence", 0.10, 0.95, 0.25, 0.05)
         iou_threshold = st.slider("IoU", 0.10, 0.95, 0.50, 0.05)
@@ -934,6 +952,18 @@ with main_col:
             inference_size=inference_size,
             mirror_view=mirror_view,
         )
+    elif not enable_webrtc:
+        st.info("Live WebRTC is disabled. Using camera snapshot fallback.")
+        render_camera_fallback(
+            model=model,
+            conf_threshold=conf_threshold,
+            iou_threshold=iou_threshold,
+            alert_targets=set(alert_targets),
+            alert_confidence=alert_confidence,
+            alert_cooldown_sec=alert_cooldown_sec,
+            inference_size=inference_size,
+            mirror_view=mirror_view,
+        )
     else:
         try:
             video_callback = create_video_callback(
@@ -954,7 +984,7 @@ with main_col:
                 video_frame_callback=video_callback,
                 async_processing=True,
                 desired_playing_state=True,
-                rtc_configuration=build_rtc_configuration(),
+                rtc_configuration=rtc_configuration,
                 media_stream_constraints={"video": True, "audio": False},
                 video_html_attrs={
                     "style": {"width": "100%", "object-fit": "contain"}
