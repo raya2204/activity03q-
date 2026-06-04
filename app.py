@@ -222,19 +222,18 @@ def overlay_hud(frame: Any, fps: float, current_counts: Counter, latest_alert: s
     if cv2 is None:
         return frame
     hud = frame.copy()
-    # Soft rose overlay that keeps the camera feed readable.
-    cv2.rectangle(hud, (10, 10), (520, 160), (140, 90, 170), -1)
-    # Keep the overlay translucent so detections stay clear.
-    cv2.addWeighted(hud, 0.45, frame, 0.55, 0, frame)
+    # Dark modern overlay for glassmorphism tech look
+    cv2.rectangle(hud, (10, 10), (520, 160), (40, 20, 10), -1)
+    cv2.addWeighted(hud, 0.6, frame, 0.4, 0, frame)
 
-    # Rose-toned HUD text.
+    # Cyan HUD text (BGR: 248, 189, 56)
     cv2.putText(
         frame,
         f"FPS: {fps:.1f}",
         (20, 40),
         cv2.FONT_HERSHEY_SIMPLEX,
         0.8,
-        (230, 150, 255),
+        (248, 189, 56),
         2,
         cv2.LINE_AA,
     )
@@ -263,7 +262,7 @@ def overlay_hud(frame: Any, fps: float, current_counts: Counter, latest_alert: s
         (20, 116),
         cv2.FONT_HERSHEY_SIMPLEX,
         0.6,
-        (180, 105, 255) if latest_alert else (200, 200, 200),
+        (248, 189, 56) if latest_alert else (180, 180, 180),
         2,
         cv2.LINE_AA,
     )
@@ -520,27 +519,23 @@ st.markdown(
     """
 <style>
 :root {
-    --plum-900: #2c1d2f;
-    --plum-800: #402640;
-    --plum-700: #673a60;
-    --rose-700: #9f3f70;
-    --rose-600: #c85d8f;
-    --rose-500: #dd78a6;
-    --rose-300: #f3b4cc;
-    --rose-100: #ffe3ef;
-    --lilac-200: #eadcf8;
-    --lilac-100: #f6effd;
-    --pearl-50: #fff9fc;
-    --mint-100: #eaf7f0;
-    --ink-700: #3d2d3e;
-    --muted-600: #735f71;
-    --line: rgba(159, 63, 112, 0.22);
-    --shadow: 0 16px 34px rgba(103, 58, 96, 0.13);
+    --bg-base: #0f172a;
+    --bg-surface: rgba(30, 41, 59, 0.7);
+    --border-color: rgba(56, 189, 248, 0.2);
+    --text-main: #f8fafc;
+    --text-muted: #94a3b8;
+    --accent-primary: #38bdf8;
+    --accent-glow: rgba(56, 189, 248, 0.4);
+    --shadow-soft: 0 8px 32px 0 rgba(0, 0, 0, 0.37);
+    --shadow-glow: 0 0 15px var(--accent-glow);
 }
-html, body,
-.stApp {
-    background: var(--pearl-50) !important;
-    color: var(--ink-700) !important;
+html, body, .stApp {
+    background-color: var(--bg-base) !important;
+    background-image: 
+        radial-gradient(circle at 15% 50%, rgba(56, 189, 248, 0.08), transparent 25%),
+        radial-gradient(circle at 85% 30%, rgba(139, 92, 246, 0.08), transparent 25%) !important;
+    color: var(--text-main) !important;
+    font-family: 'Inter', sans-serif;
 }
 [data-testid="stAppViewContainer"],
 [data-testid="stMain"],
@@ -548,153 +543,173 @@ html, body,
     background: transparent !important;
 }
 [data-testid="stHeader"] {
-    background: var(--pearl-50) !important;
-    border-bottom: 1px solid rgba(159, 63, 112, 0.14);
+    background: transparent !important;
 }
 div.block-container {
-    padding-top: 1.1rem;
+    padding-top: 2rem;
     padding-bottom: 2rem;
-    max-width: 1220px;
+    max-width: 1280px;
     width: 95%;
 }
-h1, h2, h3 {
-    letter-spacing: 0;
-    color: var(--plum-800) !important;
+h1, h2, h3, h4, h5, h6 {
+    color: var(--text-main) !important;
     font-weight: 700;
-}
-h1 {
-    font-size: 2.35rem;
-    line-height: 1.12;
+    letter-spacing: -0.02em;
 }
 section[data-testid="stSidebar"] {
-    background: var(--rose-100) !important;
-    border-right: 1px solid var(--line);
-    box-shadow: 12px 0 32px rgba(103, 58, 96, 0.08);
+    background: rgba(15, 23, 42, 0.8) !important;
+    backdrop-filter: blur(16px);
+    -webkit-backdrop-filter: blur(16px);
+    border-right: 1px solid var(--border-color);
 }
 section[data-testid="stSidebar"] h2,
 section[data-testid="stSidebar"] h3 {
-    color: var(--plum-800) !important;
+    color: var(--accent-primary) !important;
 }
-section[data-testid="stSidebar"] [data-testid="stMarkdownContainer"],
-section[data-testid="stSidebar"] label,
 label, p, span, .stMarkdown, .stCaption, [data-testid="stMarkdownContainer"] {
-    color: var(--ink-700) !important;
+    color: var(--text-muted) !important;
 }
 [data-testid="stMetricValue"] {
-    font-size: 1.25rem;
-    color: var(--rose-700) !important;
+    color: var(--accent-primary) !important;
+    text-shadow: var(--shadow-glow);
 }
 .small-note {
-    color: var(--muted-600);
+    color: var(--text-muted);
     font-size: 0.9rem;
-    border-left: 3px solid var(--rose-300);
+    border-left: 3px solid var(--accent-primary);
     padding-left: 0.75rem;
 }
 div[data-testid="stExpander"] {
-    border-radius: 8px;
-    border: 1px solid var(--line);
-    background: rgba(255, 249, 252, 0.84) !important;
-    box-shadow: var(--shadow);
+    background: var(--bg-surface) !important;
+    backdrop-filter: blur(10px);
+    -webkit-backdrop-filter: blur(10px);
+    border: 1px solid var(--border-color);
+    border-radius: 12px;
+    box-shadow: var(--shadow-soft);
 }
 div[data-testid="stExpander"] summary {
-    color: var(--plum-800) !important;
-    font-weight: 650;
+    color: var(--text-main) !important;
+    font-weight: 600;
 }
 .stButton > button {
+    background: transparent;
+    border: 1px solid var(--accent-primary);
+    color: var(--accent-primary) !important;
     border-radius: 8px;
-    border: 1px solid var(--rose-700);
-    background: var(--rose-600);
-    color: #ffffff !important;
-    font-weight: 650;
-    box-shadow: 0 10px 22px rgba(159, 63, 112, 0.24);
+    font-weight: 600;
+    transition: all 0.3s ease;
+    text-transform: uppercase;
+    letter-spacing: 0.05em;
+    font-size: 0.85rem;
 }
 .stButton > button:hover {
-    border-color: var(--plum-700);
-    background: var(--plum-700);
-    color: #ffffff !important;
+    background: var(--accent-primary);
+    color: var(--bg-base) !important;
+    box-shadow: var(--shadow-glow);
 }
 div[data-baseweb="select"] > div,
 div[data-testid="stAlert"],
 div[data-testid="stDataFrame"],
 textarea,
 input {
+    background: rgba(30, 41, 59, 0.5) !important;
+    border: 1px solid var(--border-color) !important;
     border-radius: 8px !important;
-    border-color: var(--line) !important;
-    background: rgba(255, 249, 252, 0.94) !important;
-    color: var(--ink-700) !important;
+    color: var(--text-main) !important;
 }
 div[data-baseweb="popover"],
 ul[data-testid="stVirtualDropdown"] {
-    background: var(--pearl-50) !important;
-    color: var(--ink-700) !important;
+    background: var(--bg-base) !important;
+    border: 1px solid var(--border-color);
+    color: var(--text-main) !important;
 }
 [data-baseweb="tag"] {
-    background: var(--rose-100) !important;
-    color: var(--plum-800) !important;
+    background: rgba(56, 189, 248, 0.2) !important;
+    color: var(--accent-primary) !important;
+    border: 1px solid var(--accent-primary);
 }
 .stSlider [data-baseweb="slider"] > div {
-    color: var(--rose-700) !important;
+    color: var(--accent-primary) !important;
 }
 .stSlider [data-baseweb="slider"] div[role="slider"] {
-    background: #ffffff !important;
-    border: 2px solid var(--rose-600) !important;
-    box-shadow: 0 0 0 0.25rem rgba(200, 93, 143, 0.16);
+    background: var(--accent-primary) !important;
+    border: none !important;
+    box-shadow: var(--shadow-glow) !important;
 }
 [data-testid="stCameraInput"] video,
 [data-testid="stImage"],
 video {
-    border-radius: 8px;
-    border: 1px solid var(--line);
-    box-shadow: var(--shadow);
+    border-radius: 12px;
+    border: 1px solid var(--border-color);
+    box-shadow: var(--shadow-soft);
 }
 table {
     border-radius: 8px;
     overflow: hidden;
-    background: rgba(255, 249, 252, 0.94) !important;
-    color: var(--ink-700) !important;
+    background: transparent !important;
+    color: var(--text-main) !important;
 }
 thead tr th {
-    background: var(--rose-100) !important;
-    color: var(--plum-800) !important;
+    background: rgba(56, 189, 248, 0.1) !important;
+    color: var(--accent-primary) !important;
+    border-bottom: 1px solid var(--border-color) !important;
 }
 tbody tr td {
-    background: rgba(255, 249, 252, 0.9) !important;
-    color: var(--ink-700) !important;
+    background: transparent !important;
+    color: var(--text-muted) !important;
+    border-bottom: 1px solid rgba(255, 255, 255, 0.05) !important;
 }
 code, pre {
-    background: #fff0f7 !important;
-    color: var(--plum-800) !important;
+    background: rgba(0, 0, 0, 0.3) !important;
+    color: var(--accent-primary) !important;
     border-radius: 8px;
+    border: 1px solid var(--border-color);
 }
 .hero-band {
     width: 100%;
-    padding: 1.1rem 0 1.35rem 0;
-    border-bottom: 1px solid rgba(159, 63, 112, 0.12);
-    margin-bottom: 1rem;
+    padding: 2rem 0;
+    border-bottom: 1px solid var(--border-color);
+    margin-bottom: 2rem;
+    position: relative;
+}
+.hero-band::after {
+    content: '';
+    position: absolute;
+    bottom: -1px;
+    left: 0;
+    width: 100px;
+    height: 1px;
+    background: var(--accent-primary);
+    box-shadow: var(--shadow-glow);
 }
 .hero-kicker {
-    color: var(--rose-700) !important;
-    font-size: 0.78rem;
-    font-weight: 800;
-    letter-spacing: 0.12em;
+    color: var(--accent-primary) !important;
+    font-size: 0.85rem;
+    font-weight: 600;
+    letter-spacing: 0.15em;
     text-transform: uppercase;
-    margin-bottom: 0.35rem;
+    margin-bottom: 0.5rem;
 }
 .hero-title {
-    color: var(--plum-900) !important;
-    font-size: clamp(2rem, 4vw, 3rem);
+    color: var(--text-main) !important;
+    font-size: clamp(2.5rem, 5vw, 4rem);
     font-weight: 800;
-    line-height: 1.02;
+    line-height: 1.1;
     margin: 0;
+    text-shadow: 0 4px 12px rgba(0, 0, 0, 0.5);
 }
 .hero-copy {
-    color: var(--muted-600) !important;
-    max-width: 760px;
-    margin: 0.6rem 0 0 0;
-    font-size: 1.02rem;
+    color: var(--text-muted) !important;
+    max-width: 800px;
+    margin: 1rem 0 0 0;
+    font-size: 1.1rem;
+    line-height: 1.6;
 }
 .stAlert {
-    color: var(--ink-700) !important;
+    background: rgba(30, 41, 59, 0.8) !important;
+    backdrop-filter: blur(10px);
+    border: 1px solid var(--border-color);
+    color: var(--text-main) !important;
 }
 </style>
 """,
@@ -711,8 +726,8 @@ st.markdown(
     <div class="hero-kicker">Hiraya Activity 03</div>
     <h1 class="hero-title">Hiraya Vision Studio</h1>
     <p class="hero-copy">
-        Real-time <strong>{MODEL_WEIGHTS}</strong> detection and tracking with rose-toned controls,
-        soft status panels, and clean session summaries.
+        Advanced <strong>{MODEL_WEIGHTS}</strong> real-time detection pipeline with a sleek glassmorphism interface,
+        dark mode telemetry, and precision tracking.
     </p>
 </div>
 """,
@@ -789,7 +804,6 @@ with video_col:
                 video_frame_callback=video_callback,
                 rtc_configuration=build_rtc_configuration(),
                 async_processing=True,
-                desired_playing_state=False,
                 # Explicit constraints for standard 16:9 ratio to prevent the "zoomed in" cropping effect
                 media_stream_constraints={
                     "video": {"width": {"ideal": 1280}, "height": {"ideal": 720}, "aspectRatio": 1.777},
