@@ -539,10 +539,7 @@ st.markdown(
 }
 html, body,
 .stApp {
-    background:
-        radial-gradient(circle at 8% 12%, rgba(255, 214, 232, 0.96), transparent 26rem),
-        radial-gradient(circle at 88% 4%, rgba(218, 199, 246, 0.88), transparent 25rem),
-        linear-gradient(135deg, var(--pearl-50) 0%, var(--rose-100) 43%, var(--lilac-100) 76%, var(--mint-100) 100%) !important;
+    background: var(--pearl-50) !important;
     color: var(--ink-700) !important;
 }
 [data-testid="stAppViewContainer"],
@@ -551,8 +548,7 @@ html, body,
     background: transparent !important;
 }
 [data-testid="stHeader"] {
-    background: rgba(255, 249, 252, 0.76) !important;
-    backdrop-filter: blur(16px);
+    background: var(--pearl-50) !important;
     border-bottom: 1px solid rgba(159, 63, 112, 0.14);
 }
 div.block-container {
@@ -571,8 +567,7 @@ h1 {
     line-height: 1.12;
 }
 section[data-testid="stSidebar"] {
-    background:
-        linear-gradient(180deg, rgba(255, 247, 251, 0.98) 0%, rgba(246, 239, 253, 0.98) 62%, rgba(234, 247, 240, 0.96) 100%) !important;
+    background: var(--rose-100) !important;
     border-right: 1px solid var(--line);
     box-shadow: 12px 0 32px rgba(103, 58, 96, 0.08);
 }
@@ -608,14 +603,14 @@ div[data-testid="stExpander"] summary {
 .stButton > button {
     border-radius: 8px;
     border: 1px solid var(--rose-700);
-    background: linear-gradient(135deg, var(--rose-700), var(--rose-500));
+    background: var(--rose-600);
     color: #ffffff !important;
     font-weight: 650;
     box-shadow: 0 10px 22px rgba(159, 63, 112, 0.24);
 }
 .stButton > button:hover {
     border-color: var(--plum-700);
-    background: linear-gradient(135deg, var(--plum-700), var(--rose-600));
+    background: var(--plum-700);
     color: #ffffff !important;
 }
 div[data-baseweb="select"] > div,
@@ -792,6 +787,7 @@ with video_col:
             webrtc_streamer(
                 key="object-detection",
                 video_frame_callback=video_callback,
+                rtc_configuration=build_rtc_configuration(),
                 async_processing=True,
                 desired_playing_state=False,
                 # Explicit constraints for standard 16:9 ratio to prevent the "zoomed in" cropping effect
