@@ -512,11 +512,217 @@ def process_snapshot_frame(
     )
 
 
-st.set_page_config(page_title="Live Object Detection & Tracing", layout="wide")
+st.set_page_config(page_title="Hiraya Vision Studio", layout="wide")
+
+# Self-contained Hiraya theme. Keep this before any st.stop() calls so Cloud
+# errors still render with the intended design.
+st.markdown(
+    """
+<style>
+:root {
+    --plum-900: #2c1d2f;
+    --plum-800: #402640;
+    --plum-700: #673a60;
+    --rose-700: #9f3f70;
+    --rose-600: #c85d8f;
+    --rose-500: #dd78a6;
+    --rose-300: #f3b4cc;
+    --rose-100: #ffe3ef;
+    --lilac-200: #eadcf8;
+    --lilac-100: #f6effd;
+    --pearl-50: #fff9fc;
+    --mint-100: #eaf7f0;
+    --ink-700: #3d2d3e;
+    --muted-600: #735f71;
+    --line: rgba(159, 63, 112, 0.22);
+    --shadow: 0 16px 34px rgba(103, 58, 96, 0.13);
+}
+html, body,
+.stApp {
+    background:
+        radial-gradient(circle at 8% 12%, rgba(255, 214, 232, 0.96), transparent 26rem),
+        radial-gradient(circle at 88% 4%, rgba(218, 199, 246, 0.88), transparent 25rem),
+        linear-gradient(135deg, var(--pearl-50) 0%, var(--rose-100) 43%, var(--lilac-100) 76%, var(--mint-100) 100%) !important;
+    color: var(--ink-700) !important;
+}
+[data-testid="stAppViewContainer"],
+[data-testid="stMain"],
+[data-testid="stMainBlockContainer"] {
+    background: transparent !important;
+}
+[data-testid="stHeader"] {
+    background: rgba(255, 249, 252, 0.76) !important;
+    backdrop-filter: blur(16px);
+    border-bottom: 1px solid rgba(159, 63, 112, 0.14);
+}
+div.block-container {
+    padding-top: 1.1rem;
+    padding-bottom: 2rem;
+    max-width: 1220px;
+    width: 95%;
+}
+h1, h2, h3 {
+    letter-spacing: 0;
+    color: var(--plum-800) !important;
+    font-weight: 700;
+}
+h1 {
+    font-size: 2.35rem;
+    line-height: 1.12;
+}
+section[data-testid="stSidebar"] {
+    background:
+        linear-gradient(180deg, rgba(255, 247, 251, 0.98) 0%, rgba(246, 239, 253, 0.98) 62%, rgba(234, 247, 240, 0.96) 100%) !important;
+    border-right: 1px solid var(--line);
+    box-shadow: 12px 0 32px rgba(103, 58, 96, 0.08);
+}
+section[data-testid="stSidebar"] h2,
+section[data-testid="stSidebar"] h3 {
+    color: var(--plum-800) !important;
+}
+section[data-testid="stSidebar"] [data-testid="stMarkdownContainer"],
+section[data-testid="stSidebar"] label,
+label, p, span, .stMarkdown, .stCaption, [data-testid="stMarkdownContainer"] {
+    color: var(--ink-700) !important;
+}
+[data-testid="stMetricValue"] {
+    font-size: 1.25rem;
+    color: var(--rose-700) !important;
+}
+.small-note {
+    color: var(--muted-600);
+    font-size: 0.9rem;
+    border-left: 3px solid var(--rose-300);
+    padding-left: 0.75rem;
+}
+div[data-testid="stExpander"] {
+    border-radius: 8px;
+    border: 1px solid var(--line);
+    background: rgba(255, 249, 252, 0.84) !important;
+    box-shadow: var(--shadow);
+}
+div[data-testid="stExpander"] summary {
+    color: var(--plum-800) !important;
+    font-weight: 650;
+}
+.stButton > button {
+    border-radius: 8px;
+    border: 1px solid var(--rose-700);
+    background: linear-gradient(135deg, var(--rose-700), var(--rose-500));
+    color: #ffffff !important;
+    font-weight: 650;
+    box-shadow: 0 10px 22px rgba(159, 63, 112, 0.24);
+}
+.stButton > button:hover {
+    border-color: var(--plum-700);
+    background: linear-gradient(135deg, var(--plum-700), var(--rose-600));
+    color: #ffffff !important;
+}
+div[data-baseweb="select"] > div,
+div[data-testid="stAlert"],
+div[data-testid="stDataFrame"],
+textarea,
+input {
+    border-radius: 8px !important;
+    border-color: var(--line) !important;
+    background: rgba(255, 249, 252, 0.94) !important;
+    color: var(--ink-700) !important;
+}
+div[data-baseweb="popover"],
+ul[data-testid="stVirtualDropdown"] {
+    background: var(--pearl-50) !important;
+    color: var(--ink-700) !important;
+}
+[data-baseweb="tag"] {
+    background: var(--rose-100) !important;
+    color: var(--plum-800) !important;
+}
+.stSlider [data-baseweb="slider"] > div {
+    color: var(--rose-700) !important;
+}
+.stSlider [data-baseweb="slider"] div[role="slider"] {
+    background: #ffffff !important;
+    border: 2px solid var(--rose-600) !important;
+    box-shadow: 0 0 0 0.25rem rgba(200, 93, 143, 0.16);
+}
+[data-testid="stCameraInput"] video,
+[data-testid="stImage"],
+video {
+    border-radius: 8px;
+    border: 1px solid var(--line);
+    box-shadow: var(--shadow);
+}
+table {
+    border-radius: 8px;
+    overflow: hidden;
+    background: rgba(255, 249, 252, 0.94) !important;
+    color: var(--ink-700) !important;
+}
+thead tr th {
+    background: var(--rose-100) !important;
+    color: var(--plum-800) !important;
+}
+tbody tr td {
+    background: rgba(255, 249, 252, 0.9) !important;
+    color: var(--ink-700) !important;
+}
+code, pre {
+    background: #fff0f7 !important;
+    color: var(--plum-800) !important;
+    border-radius: 8px;
+}
+.hero-band {
+    width: 100%;
+    padding: 1.1rem 0 1.35rem 0;
+    border-bottom: 1px solid rgba(159, 63, 112, 0.12);
+    margin-bottom: 1rem;
+}
+.hero-kicker {
+    color: var(--rose-700) !important;
+    font-size: 0.78rem;
+    font-weight: 800;
+    letter-spacing: 0.12em;
+    text-transform: uppercase;
+    margin-bottom: 0.35rem;
+}
+.hero-title {
+    color: var(--plum-900) !important;
+    font-size: clamp(2rem, 4vw, 3rem);
+    font-weight: 800;
+    line-height: 1.02;
+    margin: 0;
+}
+.hero-copy {
+    color: var(--muted-600) !important;
+    max-width: 760px;
+    margin: 0.6rem 0 0 0;
+    font-size: 1.02rem;
+}
+.stAlert {
+    color: var(--ink-700) !important;
+}
+</style>
+""",
+    unsafe_allow_html=True,
+)
 
 RUNTIME = get_runtime()
 model, model_error = load_model()
 available_labels = get_model_names(model)
+
+st.markdown(
+    f"""
+<div class="hero-band">
+    <div class="hero-kicker">Hiraya Activity 03</div>
+    <h1 class="hero-title">Hiraya Vision Studio</h1>
+    <p class="hero-copy">
+        Real-time <strong>{MODEL_WEIGHTS}</strong> detection and tracking with rose-toned controls,
+        soft status panels, and clean session summaries.
+    </p>
+</div>
+""",
+    unsafe_allow_html=True,
+)
 
 if cv2 is None:
     st.error("OpenCV failed to load in this environment.")
@@ -526,103 +732,6 @@ if cv2 is None:
 if model is None:
     st.error("YOLO model failed to load. Detection will be disabled until this is fixed.")
     st.code(model_error)
-
-# Soft rose theme with polished, readable controls.
-st.markdown(
-    """
-<style>
-:root {
-    --rose-700: #7b3d62;
-    --rose-600: #a44e75;
-    --rose-500: #c85d8f;
-    --mauve-200: #ead8e7;
-    --lilac-100: #f4edf8;
-    --blush-50: #fff7fb;
-    --sage-100: #edf7f1;
-    --ink-700: #3f3440;
-    --muted-600: #705d6d;
-}
-.stApp {
-    background:
-        radial-gradient(circle at top left, rgba(255, 228, 238, 0.78), transparent 34rem),
-        linear-gradient(135deg, var(--blush-50) 0%, var(--lilac-100) 56%, var(--sage-100) 100%);
-    color: var(--ink-700);
-}
-div.block-container {
-    padding-top: 1.35rem;
-    padding-bottom: 2rem;
-    max-width: 1220px;
-    width: 95%;
-}
-h1, h2, h3 {
-    letter-spacing: 0;
-    color: var(--rose-700);
-    font-weight: 700;
-}
-h1 {
-    font-size: 2.2rem;
-    line-height: 1.12;
-}
-section[data-testid="stSidebar"] {
-    background: linear-gradient(180deg, #fff8fb 0%, #f5edf8 58%, #edf7f1 100%);
-    border-right: 1px solid rgba(164, 78, 117, 0.18);
-}
-section[data-testid="stSidebar"] h2,
-section[data-testid="stSidebar"] h3 {
-    color: var(--rose-700);
-}
-label, .stMarkdown, .stCaption, p {
-    color: var(--ink-700);
-}
-[data-testid="stMetricValue"] {
-    font-size: 1.25rem;
-    color: var(--rose-600);
-}
-.small-note {
-    color: var(--muted-600);
-    font-size: 0.9rem;
-}
-div[data-testid="stExpander"] {
-    border-radius: 8px;
-    border: 1px solid rgba(200, 93, 143, 0.28);
-    background: rgba(255, 255, 255, 0.74);
-    box-shadow: 0 10px 24px rgba(123, 61, 98, 0.09);
-}
-div[data-testid="stExpander"] summary {
-    color: var(--rose-700);
-    font-weight: 650;
-}
-.stButton > button {
-    border-radius: 8px;
-    border: 1px solid var(--rose-600);
-    background: var(--rose-600);
-    color: #ffffff;
-    font-weight: 650;
-}
-.stButton > button:hover {
-    border-color: var(--rose-700);
-    background: var(--rose-700);
-    color: #ffffff;
-}
-.stSlider [data-baseweb="slider"] div[role="slider"] {
-    box-shadow: 0 0 0 0.25rem rgba(200, 93, 143, 0.16);
-}
-div[data-baseweb="select"] > div,
-div[data-testid="stAlert"] {
-    border-radius: 8px;
-}
-table {
-    border-radius: 8px;
-    overflow: hidden;
-}
-</style>
-""",
-    unsafe_allow_html=True,
-)
-st.title("Live Object Detection & Tracing")
-st.write(
-    f"Real-time **{MODEL_WEIGHTS}** detection and tracking with soft controls, alerting, and session summaries."
-)
 
 with st.sidebar:
     st.header("Detection Settings")
